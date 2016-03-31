@@ -106,7 +106,7 @@
           </div>
 
           <div class="grid one-half last">
-            <?php hu_social_links() ; ?>
+            <?php hu_print_social_links() ; ?>
           </div>
 
         </div><!--/.pad-->

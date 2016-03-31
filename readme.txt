@@ -73,7 +73,10 @@ Right sidebar, top to bottom:
 See headers of files for further details.
 
 # Changelog
-= November 24 2015 - 1.5.7 =
+= 3.0.0 March 30th 2015  =
+* Moved options from the previous admin option panel to the customizer
+
+= 1.5.7 November 24 2015 =
 * Updated to OptionTree 2.5.5
 * Updated to Font Awesome 4.5.0
 * Updated to TGM Plugin Activation 2.5.2

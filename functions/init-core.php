@@ -66,22 +66,13 @@ function hu_is_checked( $opt_name = '') {
 function hu_booleanize_checkbox_val( $val ) {
   if ( ! $val )
     return;
-
-  switch ( $val ) {
-    case 'on':
-    case 1 :
-    case '1' :
-    case true :
-      return true;
-      break;
-
+  switch ( (string) $val ) {
     case 'off':
-    case 0 :
-    case '0' :
-    case false :
+    case '' :
       return false;
-      break;
-
+    case 'on':
+    case '1' :
+      return true;
     default: return false;
   }
 }
@@ -92,7 +83,24 @@ function hu_checked( $val ) {
   echo hu_is_checked( $val ) ? 'checked="checked"' : '';
 }
 
-
+/**
+* Checks if we use a child theme. Uses a deprecated WP functions (get _theme_data) for versions <3.4
+* @return boolean
+*
+*/
+function hu_is_child() {
+  // get themedata version wp 3.4+
+  if ( function_exists( 'wp_get_theme' ) ) {
+    //get WP_Theme object
+    $_theme       = wp_get_theme();
+    //define a boolean if using a child theme
+    return $_theme -> parent() ? true : false;
+  }
+  else {
+    $_theme       = call_user_func('get_' .'theme_data', get_stylesheet_directory().'/style.css' );
+    return ! empty($_theme['Template']) ? true : false;
+  }
+}
 
 
 
@@ -206,24 +214,23 @@ if( ! defined( 'HU_WEBSITE' ) )         define( 'HU_WEBSITE' , $hu_base_data['au
 
 
 /* ------------------------------------------------------------------------- *
- *  Do we need to copy old Option Tree options ?
+ *  SIDEBAR OPTION RETRO COMPATIBILITY
 /* ------------------------------------------------------------------------- */
+//backup the sidebar_widgets as they are before the migration
+//if something wrong happens, we'll be able to restore them with wp_set_sidebars_widgets()
+//and to remove the potential _orphaned generated
+add_action( 'after_switch_theme',  'hu_backup_sidebars', 0 );
+
+function hu_backup_sidebars() {
+  $sidebars_widgets = get_theme_mod( 'sidebars_widgets' );
+  $data = isset($sidebars_widgets['data']) ? $sidebars_widgets['data'] : array();
+  if ( ! get_transient( '_hu_sidebar_backup' ) )
+    set_transient( '_hu_sidebar_backup', $data, 24 * 3600 * 365 * 20 );
+}
+
+
+//get the previous locations and contexts and turn them into new options
 add_filter('hu_implement_options_compat', 'hu_generate_new_sidebar_options');
-
-//hook : hu_implement_options_compat
-//OLD : the sidebar area was an array of two items : title and id
-//NEW : now it's and array of 4 items : title, id, [contexts], [locations]
-//=> the previous s1* and s2* options are not used anymore, they've been merged in the sidebar-areas option
-//=> how to new from old ?
-//1)
-// function hu_build_new_sidebar_options( $options ) {
-//   $_old_sb_opt = isset( $options['sidebar-areas'] ) ? $options['sidebar-areas'] : array();
-//   if ( empty($options['sidebar-areas']) )
-//     return $options;
-//   foreach ( $_old_sb_opt as $key => $value ) {
-
-//   }
-// }
 
 
 //hook : hu_implement_options_compat
@@ -233,7 +240,7 @@ function hu_generate_new_sidebar_options($__options) {
   $builtin_zones = array();
 
   foreach ( hu_get_default_widget_zones() as $_zone_id => $_data ) {
-    //get the default location
+
     $_locs = hu_get_old_locations($_zone_id, $__options);
     if ( empty($_locs) && isset($_default_locations[$_zone_id]) ) {
       $_locs[] = key($_default_locations[$_zone_id]);
@@ -280,11 +287,12 @@ function hu_generate_new_sidebar_options($__options) {
     }//foreach
   }//if
 
-  $__options['sidebar-areas'] = array_merge( $builtin_zones, $custom_zones );
+  //make sure the previous "rules" for sidebars and respected
+  $_new_sb_areas_opts = hu_clean_old_sidebar_options( array_merge( $builtin_zones, $custom_zones ), $__options );
+
+  $__options['sidebar-areas'] = $_new_sb_areas_opts;
   return $__options;
 }
-
-
 
 
 function hu_get_old_locations( $_zone_id, $__options) {
@@ -306,10 +314,33 @@ function hu_get_old_locations( $_zone_id, $__options) {
     's2-page'
   );
 
+  //the following zones are assigned to fixed locations
+  //primary, secondary, footer-*, header-ads, footer-ads could be assigned to s1 and s2 previously but they were always assigned in any cases to their respective default location
+  //user will be able to change this with the new options
+  //edge case : a user who had assigned the footer-1 to the s1 location on home will loose this setting
+  //=> the fix is to create a new zone, and select the home context + assign it to the s1 (right sidebar) location
+  $_fixed_locations = array(
+    's1'          => 'primary',
+    's2'          => 'secondary',
+    'header-ads'  => 'header-ads',
+    'footer-ads'  => 'footer-ads',
+    'footer-1'    => 'footer-1',
+    'footer-2'    => 'footer-2',
+    'footer-3'    => 'footer-3',
+    'footer-4'    => 'footer-4'
+  );
+
+  if ( in_array($_zone_id, $_fixed_locations) ) {
+    $locations[] = array_search($_zone_id, $_fixed_locations);
+    return $locations;
+  }
+
+
   foreach ($_old_sd_options as $opt_name) {
     //does the option exists ?
     if( ! array_key_exists($opt_name, $__options) )
       continue;
+
     //if exists, grab its value
     $value = $__options[$opt_name];
 
@@ -321,6 +352,7 @@ function hu_get_old_locations( $_zone_id, $__options) {
     if ( ! in_array($loc, $locations) )
       $locations[] = $loc;
   }
+
   return $locations;
 }
 
@@ -343,6 +375,36 @@ function hu_get_old_contexts( $_zone_id, $__options) {
     's1-page',
     's2-page'
   );
+
+  $_default_contexts = array();
+  //populates the map with the contexts
+  foreach ( hu_get_contexts_list() as $c => $title ) {
+    if ( '_all_' == $c )
+      continue;
+
+    $_default_contexts[] = $c;
+  }
+
+  //the following zones are assigned to fixed contexts
+  //user will be able to change this with the new options
+  //edge case : a user who had assigned the footer-1 to the s1 location on home will loose this setting
+  //=> the fix is to create a new zone, and select the home context + assign it to the s1 (right sidebar) location
+  $_fixed_contexts = array(
+    'primary',
+    'secondary',
+    'header-ads',
+    'footer-ads',
+    'footer-1',
+    'footer-2',
+    'footer-3',
+    'footer-4'
+  );
+
+  if ( in_array($_zone_id, $_fixed_contexts) ) {
+    $contexts = $_default_contexts;
+    return $contexts;
+  }
+
   foreach ($_old_sd_options as $opt_name) {
     //does the option exists ?
     if( ! array_key_exists($opt_name, $__options) )
@@ -361,6 +423,102 @@ function hu_get_old_contexts( $_zone_id, $__options) {
 
   return $contexts;
 }
+
+
+
+//SIDEBAR RULES FOR THE MIGRATIONS
+//
+//Locations s1 and s2, for a given context :
+//  1) can only have one widget zone assigned
+//  2) fallback on primary (for s1) and secondary (for s2) if no widget zone is assigned.
+//
+//Zones footer-*, header-ads, footer-ads, primary, secondary :
+//  1) could be assigned to s1 and s2 in specific contexts
+//  2) are now always assigned to their default locations in all contexts
+function hu_clean_old_sidebar_options( $_new_sb_opts, $__options ) {
+  //for s1 and s2, create an array of context => array( 's1' => [ widget_zones ], 's2' => [widget_zones] );
+  //and for each one, determine who is the winner
+  $_old_sd_options = array(
+    's1-home',
+    's2-home',
+    's1-single',
+    's2-single',
+    's1-archive',
+    's2-archive',
+    's1-archive-category',
+    's2-archive-category',
+    's1-search',
+    's2-search',
+    's1-404',
+    's2-404',
+    's1-page',
+    's2-page'
+  );
+
+  $_default_zone_for_sidebars = array(
+    's1' => 'primary',
+    's2' => 'secondary'
+  );
+
+  $_forbidden_zones_for_sidebars = array(
+    'header-ads',
+    'footer-ads',
+    'footer-1',
+    'footer-2',
+    'footer-3',
+    'footer-4'
+  );
+
+  //make sure that s1 and s2 have only one widget zone for a given context
+  foreach ($_old_sd_options as $opt_name) {
+
+    //is the option defined ?
+    if( ! array_key_exists($opt_name, $__options) )
+      continue;
+
+    //get previous settings
+    $_loc     = substr($opt_name, 0, 2);//is always s1 or s2
+    $_con     = substr($opt_name, 3 );
+    $_user_zone_id = $__options[$opt_name];
+
+    //if no zone was assigned to this location-context, then continue
+    if ( empty($_user_zone_id ) || ! $_user_zone_id )
+      continue;
+
+    //is the zone different than the default one?
+    //if not, continue
+    if ( $_user_zone_id == $_default_zone_for_sidebars[$_loc] )
+      continue;
+
+    //if the zone belongs to the forbidden zones, then continue because this is not supported for the migration
+    //for example, the migration won't support a footer-1 assigned to s1
+    if ( in_array($_user_zone_id, $_forbidden_zones_for_sidebars) )
+      continue;
+
+    //loop on the new options and fix
+    //if a zone different than the default (primary or secondary) was assigned to s1 or s2 on a given context, then remove this context from its context list
+    $_zone_to_modify = $_default_zone_for_sidebars[$_loc];
+
+    foreach ($_new_sb_opts as $key => $data) {
+
+      //don't take any risk...
+      if ( !is_array($data) || !array_key_exists('id', $data) || !array_key_exists('locations', $data) || !array_key_exists('contexts', $data) )
+        continue;
+
+      if ( $_zone_to_modify != $data['id'] )
+        continue;
+
+      //remove the context from the list
+      $_key_to_remove = array_search($_con, $data['contexts']);
+      unset($_new_sb_opts[$key]['contexts'][$_key_to_remove]);
+    }//foreach
+
+  }//foreach
+
+  return $_new_sb_opts;
+}
+
+
 
 
 
@@ -425,9 +583,6 @@ if ( ! function_exists( 'hu_load' ) ) {
 
     // Load dynamic styles
     load_template( get_template_directory() . '/functions/dynamic-styles.php' );
-
-    // Load TGM plugin activation
-    load_template( get_template_directory() . '/functions/class-tgm-plugin-activation.php' );
   }
 
 }
@@ -560,7 +715,7 @@ function hu_get_default_widget_zones() {
 }
 
 
-
+//@return the array describing the previous correspondance between location => widget zone name
 function hu_get_widget_zone_rosetta_stone() {
   return array(
     's1'          => 'primary',
@@ -574,6 +729,21 @@ function hu_get_widget_zone_rosetta_stone() {
   );
 }
 
+//helper
+//@return array()
+//used both on front end and in the customizer
+function hu_get_contexts_list() {
+  return array(
+    '_all_'             => __('All contexts', 'hueman'),
+    'home'              => __('Home', 'hueman'),
+    'page'              => __('Pages', 'hueman'),
+    'single'            => __('Single Posts', 'hueman'),
+    'archive'           => __('Archives', 'hueman'),
+    'archive-category'  => __('Categories', 'hueman'),
+    'search'            => __('Search Results', 'hueman'),
+    '404'               => __('404 Error Pages', 'hueman')
+  );
+}
 
 
 //the original mapping (s1 and s2) has to be kept since it is used in many places
@@ -827,53 +997,6 @@ add_filter( 'widget_text', 'do_shortcode' );
 
 
 
-/*  TGM plugin activation
-/* ------------------------------------ */
-if ( ! function_exists( 'hu_plugins' ) ) {
-
-  function hu_plugins() {
-    if ( hu_is_checked('recommended-plugins') ) {
-      // Add the following plugins
-      $plugins = array(
-        array(
-          'name'        => 'Regenerate Thumbnails',
-          'slug'        => 'regenerate-thumbnails',
-          'required'      => false,
-          'force_activation'  => false,
-          'force_deactivation'=> false,
-        ),
-        array(
-          'name'        => 'WP-PageNavi',
-          'slug'        => 'wp-pagenavi',
-          'required'      => false,
-          'force_activation'  => false,
-          'force_deactivation'=> false,
-        ),
-        array(
-          'name'        => 'Responsive Lightbox',
-          'slug'        => 'responsive-lightbox',
-          'required'      => false,
-          'force_activation'  => false,
-          'force_deactivation'=> false,
-        ),
-        array(
-          'name'        => 'Contact Form 7',
-          'slug'        => 'contact-form-7',
-          'required'      => false,
-          'force_activation'  => false,
-          'force_deactivation'=> false,
-        )
-      );
-      tgmpa( $plugins );
-    }
-  }
-
-}
-add_action( 'tgmpa_register', 'hu_plugins' );
-
-
-
-
 /* ------------------------------------------------------------------------- *
  *  Loads and instanciates customizer related classes
 /* ------------------------------------------------------------------------- */
@@ -883,8 +1006,40 @@ if ( hu_is_customizing() ) {
 }
 
 
+/* ------------------------------------------------------------------------- *
+ *  Loads and instanciates admin pages related classes
+/* ------------------------------------------------------------------------- */
+if ( is_admin() && ! hu_is_customizing() ) {
+  add_action( 'admin_init' , 'hu_admin_style' );
+  add_action( 'wp_before_admin_bar_render', 'hu_add_help_button' );
+  load_template( get_template_directory() . '/functions/class-admin-page.php' );
+  new HU_admin_page;
+}
+
+function hu_admin_style() {
+  wp_enqueue_style(
+    'hu-admincss',
+    sprintf('%1$sassets/back/css/hu_admin.css' , HU_BASE_URL ),
+    array(),
+    HUEMAN_VER
+  );
+}
 
 
+function hu_add_help_button() {
+   if ( ! current_user_can( 'edit_theme_options' ) )
+    return;
+  global $wp_admin_bar;
+  $wp_admin_bar->add_menu( array(
+     'parent' => 'top-secondary', // Off on the right side
+     'id' => 'tc-hueman-help' ,
+     'title' =>  __( 'Help' , 'hueman' ),
+     'href' => admin_url( 'themes.php?page=welcome.php&help=true' ),
+     'meta'   => array(
+        'title'  => __( 'Need help with Customizr? Click here!', 'hueman' ),
+      ),
+   ));
+}
 
 /* ------------------------------------------------------------------------- *
  *  Loads Front End files

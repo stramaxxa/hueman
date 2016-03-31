@@ -252,14 +252,14 @@ if ( ! class_exists( 'HU_utils_settings_map' ) ) :
                 //'control'     => 'HU_Body_Background_Control',
                 'control'     => 'WP_Customize_Color_Control',
                 'label'       => __( 'Body Background' , 'hueman' ),
-                'description' => __('Set background color and/or upload your own background image', 'hueman'),
+                'description' => __('Set the website background color', 'hueman'),
                 'section'     => 'general_design_sec',
                 //'type'        => 'hu_multi_input' ,
                 'type'        => 'color',
                 'sanitize_callback'    => array( $this, 'hu_sanitize_bg_color' ),
                 'sanitize_js_callback' => array( $this, 'hu_maybe_hash_bg_hex_color' ),
                 //'transport'   => 'postMessage',
-                'notice'        => __('Set background color and/or upload your own background image.', 'hueman')
+                //'notice'        => __('Set background color and/or upload your own background image.', 'hueman')
           )
       );
     }
@@ -529,7 +529,7 @@ if ( ! class_exists( 'HU_utils_settings_map' ) ) :
           'author-bio' => array(
                 'default'   => 1,
                 'control'   => 'HU_controls',
-                'label'     => __("Single — Author Bio", 'hueman'),
+                'label'     => __("Single - Author Bio", 'hueman'),
                 'section'   => 'content_blog_sec',
                 'type'      => 'checkbox',
                 'notice'    => __( 'Display post author description, if it exists' , 'hueman')
@@ -537,7 +537,7 @@ if ( ! class_exists( 'HU_utils_settings_map' ) ) :
           'related-posts' => array(
                 'default'   => 'categories',
                 'control'   => 'HU_controls',
-                'label'     => __("Single — Related Posts", 'hueman'),
+                'label'     => __("Single - Related Posts", 'hueman'),
                 'section'   => 'content_blog_sec',
                 'type'      => 'select',//@todo create a radio type
                 'choices' => array(
@@ -550,7 +550,7 @@ if ( ! class_exists( 'HU_utils_settings_map' ) ) :
           'post-nav' => array(
                 'default'   => 's1',
                 'control'   => 'HU_controls',
-                'label'     => __("Single — Post Navigation", 'hueman'),
+                'label'     => __("Single - Post Navigation", 'hueman'),
                 'section'   => 'content_blog_sec',
                 'type'      => 'select',//@todo create a radio type
                 'choices' => array(
@@ -610,7 +610,7 @@ if ( ! class_exists( 'HU_utils_settings_map' ) ) :
           'layout-archive-category' => array(
                 'default'   => 'inherit',
                 'control'   => 'HU_Customize_Layout_Control',
-                'label'     => __('Archive — Category', 'hueman'),
+                'label'     => __('Archive - Category', 'hueman'),
                 'section'   => 'content_layout_sec',
                 'type'      => 'hu_layouts',//@todo create a radio-image type
                 'choices'   => $this -> hu_get_content_layout_choices(),

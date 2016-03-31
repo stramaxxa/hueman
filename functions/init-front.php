@@ -334,14 +334,17 @@ function hu_get_widget_zone_allowed_contexts( $id, $_user_option = null ) {
 function hu_is_widget_zone_allowed_in_context( $_contexts, $_map_conditionals ) {
   if ( ! is_array($_contexts) )
     return;
-  if ( in_array( '_all_', $_contexts ) )
-    return true;
+
   foreach ($_map_conditionals as $_context_id => $_cb) {
     if ( ! function_exists($_cb) || ! in_array($_context_id, $_contexts) )
       continue;
     if ( true === call_user_func($_cb) )
       return true;
   }
+
+  if ( in_array( '_all_', $_contexts ) )
+    return true;
+
   return false;
 }
 
@@ -438,8 +441,13 @@ if ( ! function_exists( 'hu_sidebar_secondary' ) ) {
 
 /*  Social links
 /* ------------------------------------ */
-if ( ! function_exists( 'hu_social_links' ) ) :
-  function hu_social_links() {
+function hu_has_social_links() {
+  $_socials = hu_get_option('social-links');
+  return ! empty( $_socials ) && false != $_socials;
+}
+
+if ( ! function_exists( 'hu_print_social_links' ) ) :
+  function hu_print_social_links() {
     $_socials = hu_get_option('social-links');
     if ( empty( $_socials ) )
       return;

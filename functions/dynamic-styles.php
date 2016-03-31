@@ -231,7 +231,7 @@ a,
 
       // body background (@fromfull) => keep on wp.org
       $body_bg = hu_get_option('body-background');
-      if ( ! empty( $_body_bg ) ) {
+      if ( ! empty( $body_bg ) ) {
         //for users of wp.org version prior to 3.0+, this option is an hex color string.
         if ( is_string($body_bg) ) {
           $styles .= 'body { background-color: ' . $body_bg . '; }'."\n";

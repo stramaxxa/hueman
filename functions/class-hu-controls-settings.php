@@ -113,7 +113,7 @@ if ( ! class_exists( 'HU_Customize_Manage_Widgets_Section' ) ) :
       <li id="accordion-section-{{ data.id }}" class="hu-widget-zone-section accordion-section control-section control-section-{{ data.type }}">
       <h3 class="accordion-section-title" tabindex="0">
         {{ data.title }}
-        <span class="screen-reader-text"><?php _e( 'Press return or enter to open this section' ); ?></span>
+        <span class="screen-reader-text"><?php _e( 'Press return or enter to open this section', 'hueman' ); ?></span>
       </h3>
       <ul class="accordion-section-content">
 
@@ -451,17 +451,7 @@ if ( ! class_exists( 'HU_Customize_Widget_Areas_Control' ) ) :
       //let the parent educate us
       parent::__construct($manager, $id, $args );
 
-      $this -> contexts = array(
-        '_all_'             => __('All contexts', 'hueman'),
-        'home'              => __('Home', 'hueman'),
-        'page'              => __('Pages', 'hueman'),
-        'single'            => __('Single Posts', 'hueman'),
-        'archive'           => __('Archives', 'hueman'),
-        'archive-category'  => __('Categories', 'hueman'),
-        'search'            => __('Search Results', 'hueman'),
-        '404'               => __('404 Error Pages', 'hueman'),
-
-      );
+      $this -> contexts = hu_get_contexts_list();
 
       $_default_locations = hu_get_builtin_widget_zones_location();
       //generates the locations for json
